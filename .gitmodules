@@ -1,0 +1,8 @@
+[submodule "integrations/MediaCrawler"]
+	path = integrations/MediaCrawler
+	url = https://github.com/NanmiCoder/MediaCrawler.git
+	ignore = dirty
+[submodule "integrations/video-fetch-yjf"]
+	path = integrations/video-fetch-yjf
+	url = https://github.com/yinjf2005/video-fetch-yjf.git
+	ignore = dirty

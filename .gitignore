@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.qa/
+.dev.*.log
+.vite/
+coverage/
+.DS_Store
+npm-debug.log*

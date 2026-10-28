@@ -1,0 +1,40 @@
+import type { VideoReport } from '../shared/types.js';
+
+export const demoReport: VideoReport = {
+  id: 'demo-ai-workflow',
+  sourceUrl: 'demo://video/ai-workflow',
+  platform: 'youtube',
+  connector: '本地示例',
+  title: '从视频研究到可执行结论：一套 AI 工作流复盘',
+  author: '林舟研究室',
+  thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80',
+  durationSeconds: 1642,
+  viewCount: 183742,
+  publishedAt: '2026-10-18',
+  summary: '视频拆解了一套从资料收集、转写校对到观点验证的研究流程。核心判断是，摘要只能帮助定位信息，真正可靠的结论仍需要回到时间戳和原始来源。作者还比较了自动化处理与人工复核的成本，并建议优先把评论区中的纠错、案例和资源链接纳入第二轮分析。',
+  keyPoints: [
+    '先保存原始链接、发布时间与作者信息，再开始任何转写或摘要。',
+    '把摘要视为导航层，不要把模型生成的概括直接当成事实来源。',
+    '评论区最有价值的信号通常是纠错、实践样本和补充资料。',
+    '批量处理前先用十条内容验证筛选规则，避免把噪声自动放大。',
+  ],
+  topics: ['资料核验', '视频转写', '评论筛选', '研究流程', 'AI 摘要'],
+  transcript: [
+    { startMs: 0, endMs: 42000, text: '今天完整复盘一套视频研究流程，从拿到链接开始，到最后形成可以验证的结论。' },
+    { startMs: 42000, endMs: 98000, text: '第一步不是立刻总结，而是保存视频的作者、发布时间、标题和原始链接。' },
+    { startMs: 98000, endMs: 171000, text: '转写完成后要保留时间戳，因为后面每个关键判断都需要能够回到原视频。' },
+    { startMs: 171000, endMs: 266000, text: '评论区不是简单按点赞排序。高点赞可能只是情绪共鸣，纠错和案例的点赞数反而不一定高。' },
+    { startMs: 266000, endMs: 348000, text: '筛选评论时，我会优先保留具体数据、实践条件、外部资料和可回答的问题。' },
+    { startMs: 348000, endMs: 431000, text: '最后输出时，把已验证事实、作者观点和观众补充分开呈现。' },
+  ],
+  comments: [
+    { id: 'c1', author: '周明远', text: '补充一个实测数据：我们连续处理了 67 条访谈视频，自动摘要能节省约 38% 的初筛时间，但最终引用仍然全部回到原时间戳核对。', likes: 486, replies: 28, score: 96, signal: 'experience', reasons: ['包含实践经验', '包含具体数据', '获得较多认同'] },
+    { id: 'c2', author: 'Sophie Chen', text: '这里有一点需要纠正：视频里提到的报告发布于 2025 年 11 月，不是 2026 年。原始报告链接在机构官网的 archive 页面。', likes: 271, replies: 16, score: 93, signal: 'correction', reasons: ['可能包含纠错或补充', '提供可追溯资源', '引发持续讨论'] },
+    { id: 'c3', author: '许岚', text: '对于没有字幕、画面信息又很多的视频，是否应该先做关键帧 OCR，再把结果和语音转写一起总结？', likes: 139, replies: 21, score: 84, signal: 'question', reasons: ['提出具体问题', '信息密度较高', '引发持续讨论'] },
+    { id: 'c4', author: '贺骁', text: '我把评论分成纠错、案例、资源、问题和情绪五类，实际项目里前三类最值得进入知识库。', likes: 198, replies: 7, score: 81, signal: 'experience', reasons: ['包含实践经验', '信息密度较高', '获得较多认同'] },
+    { id: 'c5', author: 'Maya Liu', text: '相关的开源实现可以参考 MediaCrawler 的数据层，以及 yt dlp 的字幕导出。两者最好通过统一模型连接，不要让页面直接依赖抓取结果。', likes: 122, replies: 4, score: 76, signal: 'resource', reasons: ['提供可追溯资源', '信息密度较高', '获得较多认同'] },
+  ],
+  totals: { transcriptSegments: 6, commentsFetched: 143, commentsRanked: 5 },
+  warnings: ['这是本地示例报告，不代表任何真实视频或评论。'],
+  analyzedAt: new Date().toISOString(),
+};
