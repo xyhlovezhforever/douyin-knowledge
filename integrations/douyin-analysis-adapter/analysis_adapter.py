@@ -6,6 +6,7 @@ import re
 import urllib.error
 import urllib.request
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
 ANALYSIS_FIELDS = (
@@ -20,6 +21,9 @@ ANALYSIS_FIELDS = (
 
 def analyze(item: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     """Analyze one authorized item without changing its identity or source URL."""
+    cached = _read_promoted_analysis(item)
+    if cached is not None:
+        return cached
     text = "\n\n".join(
         part.strip()
         for part in (str(item.get("description") or ""), str(item.get("transcript") or ""))
@@ -31,11 +35,10 @@ def analyze(item: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
             "tags": [],
         }
 
-    endpoint = os.getenv("VIDEO_ANALYSIS_API_URL", "").strip()
-    model = os.getenv("VIDEO_ANALYSIS_MODEL", "").strip() or str(context.get("model") or "")
+    endpoint, model, api_key = _resolve_service(context)
     if endpoint and model:
         try:
-            result = _analyze_with_model(endpoint, model, text, item)
+            result = _analyze_with_model(endpoint, model, text, item, api_key)
             return {"analysis": _clean_analysis(result), "tags": _clean_tags(result.get("tags"))}
         except (ValueError, urllib.error.URLError, TimeoutError):
             pass
@@ -43,7 +46,62 @@ def analyze(item: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     return _extractive_analysis(text)
 
 
-def _analyze_with_model(endpoint: str, model: str, text: str, item: dict[str, Any]) -> dict[str, Any]:
+def _read_promoted_analysis(item: dict[str, Any]) -> dict[str, Any] | None:
+    knowledge_dir = os.getenv("DOUYIN_KNOWLEDGE_DIR", "").strip()
+    aweme_id = str(item.get("aweme_id") or "").strip()
+    source = "like" if item.get("source") == "like" else "collection"
+    if not knowledge_dir or not aweme_id:
+        return None
+    try:
+        note = (Path(knowledge_dir) / f"{source}-{aweme_id}.md").read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    headings = {
+        "content_summary": "要点",
+        "value_judgment": "价值判断",
+        "deep_analysis": "深度分析",
+        "extensions": "延展补充",
+        "action_items": "行动启示",
+        "related_knowledge": "关联知识",
+    }
+    analysis = {key: value for key, heading in headings.items() if (value := _section(note, heading))}
+    if not analysis.get("content_summary"):
+        return None
+    tags_match = re.search(r"^tags:\s*(\[[^\r\n]*\])\s*$", note, re.MULTILINE)
+    try:
+        tags = json.loads(tags_match.group(1)) if tags_match else []
+    except json.JSONDecodeError:
+        tags = []
+    return {"analysis": analysis, "tags": _clean_tags(tags)}
+
+
+def _section(note: str, heading: str) -> str:
+    match = re.search(rf"^#{{2,3}} {re.escape(heading)}\s*\r?\n+([\s\S]*?)(?=^#{{2,3}} )", f"{note}\n## __END__", re.MULTILINE)
+    return match.group(1).strip() if match else ""
+
+
+def _resolve_service(context: dict[str, Any]) -> tuple[str, str, str]:
+    endpoint = os.getenv("VIDEO_ANALYSIS_API_URL", "").strip()
+    model = os.getenv("VIDEO_ANALYSIS_MODEL", "").strip()
+    api_key = os.getenv("VIDEO_ANALYSIS_API_KEY", "").strip()
+    if endpoint and model:
+        return endpoint, model, api_key
+
+    config_path = os.getenv("VIDEO_ANALYSIS_CONFIG", "").strip()
+    if config_path:
+        try:
+            config = json.loads(Path(config_path).read_text(encoding="utf-8"))
+            provider = config["providers"][config["selectedProvider"]]
+            quality = config.get("quality", "balanced")
+            base_url = str(provider["baseUrl"]).rstrip("/")
+            return f"{base_url}/chat/completions", str(provider["modelMap"][quality]), str(provider["apiKey"])
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            pass
+    return endpoint, model or str(context.get("model") or ""), api_key
+
+
+def _analyze_with_model(endpoint: str, model: str, text: str, item: dict[str, Any], api_key: str) -> dict[str, Any]:
     prompt = f"""你是视频知识整理助手。根据视频描述和转录生成严格 JSON，不要输出 Markdown 或推理过程。
 字段：content_summary、value_judgment、deep_analysis、extensions、action_items、related_knowledge、tags。
 每个字段使用简洁中文；tags 是 3 到 6 个短标签。不要补造原文没有的事实。
@@ -62,7 +120,6 @@ def _analyze_with_model(endpoint: str, model: str, text: str, item: dict[str, An
         "response_format": {"type": "json_object"},
     }
     headers = {"Content-Type": "application/json"}
-    api_key = os.getenv("VIDEO_ANALYSIS_API_KEY", "").strip()
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     request = urllib.request.Request(

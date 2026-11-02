@@ -98,6 +98,21 @@ export type DouyinMonitorStatus = {
 export type DouyinStatusResponse = { status: DouyinMonitorStatus };
 export type DouyinLibraryResponse = { items: DouyinLibraryItem[]; total: number };
 
+export type AiProviderId = 'alibaba' | 'deepseek';
+export type AiQuality = 'fast' | 'balanced' | 'quality';
+export type AiProviderPublic = {
+  baseUrl: string;
+  modelMap: Record<AiQuality, string>;
+  configured: boolean;
+  apiKeyHint?: string;
+};
+export type AiConfigPublic = {
+  selectedProvider: AiProviderId;
+  quality: AiQuality;
+  providers: Record<AiProviderId, AiProviderPublic>;
+};
+export type AiConfigResponse = { config: AiConfigPublic };
+
 export type ApiError = {
   error: string;
   code: string;

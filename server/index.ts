@@ -3,8 +3,9 @@ import cors from 'cors';
 import express from 'express';
 import { z } from 'zod';
 import { analyzeUrl, AnalyzeError, connectorStatuses } from './analyze.js';
+import { aiConfigUpdateSchema, getAiConfig, testAiProvider, updateAiConfig } from './aiConfig.js';
 import { demoReport } from './demo.js';
-import { getDouyinStatus, listDouyinLibrary, startDouyinLogin, startDouyinMonitor, syncDouyin } from './douyinMonitor.js';
+import { getDouyinStatus, listDouyinLibrary, reanalyzeDouyinLibrary, startDouyinLogin, startDouyinMonitor, syncDouyin } from './douyinMonitor.js';
 
 const app = express();
 const port = Number(process.env.PORT || 8787);
@@ -21,6 +22,40 @@ app.get('/api/health', (_request, response) => {
 
 app.get('/api/demo', (_request, response) => {
   response.json({ report: { ...demoReport, analyzedAt: new Date().toISOString() } });
+});
+
+app.get('/api/ai/config', async (_request, response) => {
+  response.json({ config: await getAiConfig() });
+});
+
+app.put('/api/ai/config', async (request, response) => {
+  const parsed = aiConfigUpdateSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: parsed.error.issues[0]?.message ?? 'AI 配置格式不正确。', code: 'INVALID_AI_CONFIG' });
+    return;
+  }
+  response.json({ config: await updateAiConfig(parsed.data) });
+});
+
+app.post('/api/ai/test', async (request, response) => {
+  const provider = request.body?.provider;
+  if (provider !== 'alibaba' && provider !== 'deepseek') {
+    response.status(400).json({ error: '请选择阿里云百炼或 DeepSeek。', code: 'INVALID_AI_PROVIDER' });
+    return;
+  }
+  try {
+    response.json(await testAiProvider(provider));
+  } catch (error) {
+    response.status(502).json({ error: error instanceof Error ? error.message : '模型连接失败。', code: 'AI_TEST_FAILED' });
+  }
+});
+
+app.post('/api/ai/reanalyze', async (_request, response) => {
+  try {
+    response.json({ result: await reanalyzeDouyinLibrary(), status: await getDouyinStatus() });
+  } catch (error) {
+    response.status(503).json({ error: error instanceof Error ? error.message : 'AI 分析失败。', code: 'AI_REANALYZE_FAILED' });
+  }
 });
 
 app.get('/api/douyin/status', async (_request, response) => {

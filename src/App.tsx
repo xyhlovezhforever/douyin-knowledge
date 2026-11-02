@@ -20,10 +20,8 @@ import {
   WarningCircle,
   X,
 } from '@phosphor-icons/react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type {
-  AnalyzeResponse,
-  ApiError,
   ConnectorStatus,
   DouyinLibraryItem,
   DouyinLibraryResponse,
@@ -32,10 +30,10 @@ import type {
   InsightComment,
   VideoReport,
 } from '../shared/types';
+import AiSettingsPage from './AiSettings';
 
 type TabId = 'overview' | 'transcript' | 'comments' | 'sources';
-type RequestState = 'idle' | 'loading' | 'success' | 'error';
-type WorkspaceMode = 'monitor' | 'single';
+type WorkspaceMode = 'monitor' | 'ai';
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof Sparkle }> = [
   { id: 'overview', label: '概览', icon: Sparkle },
@@ -54,12 +52,6 @@ const SIGNAL_LABELS: Record<InsightComment['signal'], string> = {
 
 export default function App() {
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('monitor');
-  const [url, setUrl] = useState('');
-  const [report, setReport] = useState<VideoReport | null>(null);
-  const [requestState, setRequestState] = useState<RequestState>('idle');
-  const [error, setError] = useState('');
-  const [errorCode, setErrorCode] = useState('');
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [connectors, setConnectors] = useState<ConnectorStatus[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [legalView, setLegalView] = useState<'privacy' | 'terms' | null>(null);
@@ -72,63 +64,6 @@ export default function App() {
   }, []);
 
   const readyConnectors = connectors.filter((connector) => connector.status === 'ready').length;
-
-  async function analyze(event: FormEvent) {
-    event.preventDefault();
-    const input = url.trim();
-    if (!input) {
-      setError('请输入视频链接。');
-      setErrorCode('INVALID_URL');
-      setRequestState('error');
-      return;
-    }
-    try {
-      new URL(input);
-    } catch {
-      setError('链接格式不正确，请检查后重试。');
-      setErrorCode('INVALID_URL');
-      setRequestState('error');
-      return;
-    }
-
-    setRequestState('loading');
-    setError('');
-    setErrorCode('');
-    setActiveTab('overview');
-    try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url: input }),
-      });
-      const payload = await response.json() as AnalyzeResponse | ApiError;
-      if (!response.ok || !('report' in payload)) {
-        if ('code' in payload) setErrorCode(payload.code);
-        throw new Error('error' in payload ? payload.error : '分析失败，请稍后重试。');
-      }
-      setReport(payload.report);
-      setRequestState('success');
-    } catch (cause) {
-      setRequestState('error');
-      setError(cause instanceof Error ? cause.message : '分析失败，请稍后重试。');
-    }
-  }
-
-  async function loadDemo() {
-    setRequestState('loading');
-    setError('');
-    setErrorCode('');
-    setActiveTab('overview');
-    try {
-      const response = await fetch('/api/demo');
-      const payload = await response.json() as AnalyzeResponse;
-      setReport(payload.report);
-      setRequestState('success');
-    } catch {
-      setRequestState('error');
-      setError('示例报告载入失败。');
-    }
-  }
 
   if (window.location.pathname !== '/') {
     return <NotFound />;
@@ -145,8 +80,8 @@ export default function App() {
           <button type="button" className={workspaceMode === 'monitor' ? 'active' : ''} onClick={() => setWorkspaceMode('monitor')} aria-current={workspaceMode === 'monitor' ? 'page' : undefined}>
             <ArchiveBox size={18} />收藏监测
           </button>
-          <button type="button" className={workspaceMode === 'single' ? 'active' : ''} onClick={() => setWorkspaceMode('single')} aria-current={workspaceMode === 'single' ? 'page' : undefined}>
-            <LinkIcon size={18} />单条分析
+          <button type="button" className={workspaceMode === 'ai' ? 'active' : ''} onClick={() => setWorkspaceMode('ai')} aria-current={workspaceMode === 'ai' ? 'page' : undefined}>
+            <Sparkle size={18} />AI 配置
           </button>
         </nav>
         <div className="topbar-actions">
@@ -161,58 +96,7 @@ export default function App() {
       </header>
 
       <main id="main-content" className="workspace">
-        {workspaceMode === 'monitor' ? <DouyinMonitor /> : <>
-        <section className="command-section" aria-labelledby="workspace-title">
-          <div className="command-heading">
-            <div>
-              <p className="eyebrow">视频研究工作台</p>
-              <h1 id="workspace-title">一个链接，看完视频，也看懂评论</h1>
-            </div>
-            <button className="secondary-button" type="button" onClick={loadDemo} disabled={requestState === 'loading'}>
-              <Play size={18} weight="fill" />载入示例
-            </button>
-          </div>
-
-          <form className="url-form" onSubmit={analyze} noValidate>
-            <LinkIcon className="input-icon" size={20} aria-hidden="true" />
-            <label className="sr-only" htmlFor="video-url">视频链接</label>
-            <input
-              id="video-url"
-              type="url"
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="视频链接"
-              aria-invalid={requestState === 'error'}
-              aria-describedby={error ? 'analysis-error' : undefined}
-            />
-            {url && (
-              <button className="clear-button" type="button" onClick={() => setUrl('')} aria-label="清空链接" title="清空链接">
-                <X size={18} />
-              </button>
-            )}
-            <button className="primary-button" type="submit" disabled={requestState === 'loading'}>
-              <MagnifyingGlass size={18} weight="bold" />
-              {requestState === 'loading' ? '分析中' : '开始分析'}
-            </button>
-          </form>
-
-          {requestState === 'error' && (
-            <div id="analysis-error" className="inline-error" role="alert">
-              <WarningCircle size={20} weight="fill" />
-              <span>{error}</span>
-              {(errorCode === 'CONNECTOR_UNCONFIGURED' || errorCode === 'UNSUPPORTED_PLATFORM') && (
-                <button type="button" onClick={() => setSettingsOpen(true)}>查看连接器</button>
-              )}
-            </div>
-          )}
-        </section>
-
-        {requestState === 'loading' ? <LoadingReport /> : report ? (
-          <ReportView report={report} activeTab={activeTab} onTabChange={setActiveTab} />
-        ) : (
-          <EmptyWorkspace connectors={connectors} />
-        )}
-        </>}
+        {workspaceMode === 'monitor' ? <DouyinMonitor /> : <AiSettingsPage />}
       </main>
 
       <footer className="footer">

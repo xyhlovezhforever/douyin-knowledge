@@ -34,30 +34,20 @@ try {
     await desktop.getByRole('button', { name: '关闭分析' }).click();
   }
 
-  await desktop.getByRole('button', { name: '单条分析' }).click();
-  await desktop.getByRole('button', { name: '载入示例' }).click();
-  await desktop.getByRole('heading', { name: /从视频研究到可执行结论/ }).waitFor();
-  await desktop.waitForTimeout(800);
-  assert.equal(await desktop.locator('.comment-card').count(), 4);
-  await assertNoHorizontalOverflow(desktop, 'desktop');
-  await desktop.screenshot({ path: fileURLToPath(new URL('desktop.png', outputDir)), fullPage: true });
+  await desktop.getByRole('button', { name: 'AI 配置' }).click();
+  await desktop.getByRole('heading', { name: 'AI 分析配置' }).waitFor();
+  assert.equal(await desktop.locator('.provider-switch button').count(), 2);
+  assert.equal(await desktop.locator('input[type="password"]').count(), 1);
+  assert.equal(await desktop.locator('input').first().inputValue(), '');
+  await desktop.getByRole('button', { name: 'DeepSeek' }).click();
+  await desktop.getByRole('button', { name: '阿里云百炼' }).click();
+  await assertNoHorizontalOverflow(desktop, 'desktop AI config');
+  await desktop.screenshot({ path: fileURLToPath(new URL('ai-config-desktop.png', outputDir)), fullPage: true });
 
-  await desktop.getByRole('button', { name: '转写' }).click();
-  await desktop.getByRole('textbox', { name: '搜索转写' }).fill('评论区');
-  assert.ok(await desktop.locator('.transcript-row').count() >= 1);
-  await desktop.getByRole('button', { name: /评论/ }).click();
-  await desktop.getByRole('button', { name: '纠错' }).click();
-  assert.equal(await desktop.locator('.comment-card').count(), 1);
   await desktop.getByRole('button', { name: '连接器设置' }).click();
   await desktop.getByRole('heading', { name: '连接器' }).waitFor();
   assert.equal(await desktop.locator('.connector-item').count(), 4);
   await desktop.getByRole('button', { name: '关闭设置' }).click();
-
-  await desktop.getByRole('textbox', { name: '视频链接' }).fill('https://weixin.qq.com/sph/ACk7oojJzJ');
-  await desktop.getByRole('button', { name: '开始分析' }).click();
-  await desktop.getByRole('alert').getByText('该视频号内容在网页端暂时无法播放，可能已失效、需要登录或仅可在微信内查看。').waitFor();
-  assert.equal(await desktop.getByRole('button', { name: '查看连接器' }).count(), 0);
-  await desktop.screenshot({ path: fileURLToPath(new URL('wechat-error.png', outputDir)), fullPage: true });
 
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
   await mobile.goto(baseUrl, { waitUntil: 'networkidle' });
@@ -65,8 +55,12 @@ try {
   await mobile.waitForTimeout(800);
   await assertNoHorizontalOverflow(mobile, 'mobile');
   await mobile.screenshot({ path: fileURLToPath(new URL('monitor-mobile.png', outputDir)), fullPage: true });
+  await mobile.getByRole('button', { name: 'AI 配置' }).click();
+  await mobile.getByRole('heading', { name: 'AI 分析配置' }).waitFor();
+  await assertNoHorizontalOverflow(mobile, 'mobile AI config');
+  await mobile.screenshot({ path: fileURLToPath(new URL('ai-config-mobile.png', outputDir)), fullPage: true });
 
-  console.log(JSON.stringify({ monitorDesktop: '.qa/monitor-desktop.png', analysisPanel: '.qa/analysis-panel.png', desktop: '.qa/desktop.png', monitorMobile: '.qa/monitor-mobile.png', wechatError: '.qa/wechat-error.png', status: 'passed' }));
+  console.log(JSON.stringify({ monitorDesktop: '.qa/monitor-desktop.png', analysisPanel: '.qa/analysis-panel.png', aiConfigDesktop: '.qa/ai-config-desktop.png', monitorMobile: '.qa/monitor-mobile.png', aiConfigMobile: '.qa/ai-config-mobile.png', status: 'passed' }));
 } finally {
   await browser.close();
 }

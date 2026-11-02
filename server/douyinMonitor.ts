@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, readdir } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import matter from 'gray-matter';
 import type { DouyinLibraryItem, DouyinMonitorStatus, DouyinSource } from '../shared/types.js';
+import { aiConfigPath, analyzeVideoMaterial } from './aiConfig.js';
 import { acquireProcessLock, processLockIsActive } from './lib/processLock.js';
 
 const projectRoot = process.cwd();
@@ -71,6 +72,75 @@ export async function listDouyinLibrary(): Promise<DouyinLibraryItem[]> {
     .map(async (entry) => parseDouyinNote(path.join(knowledgeDir, entry.name)));
   const items = (await Promise.all(notes)).filter((item): item is DouyinLibraryItem => Boolean(item));
   return items.sort((left, right) => right.observedAt.localeCompare(left.observedAt));
+}
+
+export async function reanalyzeDouyinLibrary(): Promise<{ total: number; updated: number; failed: number; failureReasons?: Record<string, number> }> {
+  const lock = await acquireProcessLock(syncLockPath);
+  if (!lock) throw new Error('已有同步或分析任务正在运行。');
+  runtime.running = true;
+  runtime.lastRunAt = new Date().toISOString();
+  runtime.error = undefined;
+  try {
+    const entries = (await readdir(knowledgeDir, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && /^(collection|like)-.+\.md$/i.test(entry.name));
+    let cursor = 0;
+    let updated = 0;
+    const failures: string[] = [];
+    const workers = Array.from({ length: Math.min(3, entries.length) }, async () => {
+      while (cursor < entries.length) {
+        const entry = entries[cursor++];
+        const notePath = path.join(knowledgeDir, entry.name);
+        try {
+          const raw = await readFile(notePath, 'utf8');
+          const parsed = await parseDouyinNote(notePath);
+          if (!parsed) throw new Error('无法读取知识笔记。');
+          const analysis = await analyzeVideoMaterial({
+            title: parsed.title,
+            author: parsed.author,
+            description: section(raw, '原始描述'),
+            transcript: section(raw, '转录'),
+          });
+          let next = replaceFrontmatterTags(raw, analysis.tags);
+          next = upsertMarkdownSection(next, 2, '要点', analysis.content_summary);
+          next = upsertMarkdownSection(next, 3, '价值判断', analysis.value_judgment);
+          next = upsertMarkdownSection(next, 3, '深度分析', analysis.deep_analysis);
+          next = upsertMarkdownSection(next, 3, '延展补充', analysis.extensions);
+          next = upsertMarkdownSection(next, 3, '行动启示', analysis.action_items);
+          next = upsertMarkdownSection(next, 3, '关联知识', analysis.related_knowledge);
+          await atomicWriteNote(notePath, next);
+          updated += 1;
+          runtime.lastResult = `AI 分析进度 ${updated + failures.length}/${entries.length}`;
+        } catch (error) {
+          failures.push(error instanceof Error ? error.message : '分析失败');
+          runtime.lastResult = `AI 分析进度 ${updated + failures.length}/${entries.length}`;
+        }
+      }
+    });
+    await Promise.all(workers);
+    if (!updated && failures.length) throw new Error(failures[0]);
+    if (updated) await refreshAnalysisLedger();
+    runtime.lastSuccessAt = new Date().toISOString();
+    runtime.lastResult = `AI 已分析 ${updated} 条${failures.length ? `，失败 ${failures.length} 条` : ''}`;
+    const failureReasons = failures.reduce<Record<string, number>>((reasons, reason) => {
+      const safeReason = reason.slice(0, 200);
+      reasons[safeReason] = (reasons[safeReason] ?? 0) + 1;
+      return reasons;
+    }, {});
+    return {
+      total: entries.length,
+      updated,
+      failed: failures.length,
+      ...(failures.length ? { failureReasons } : {}),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'AI 分析失败。';
+    runtime.error = message;
+    runtime.lastResult = message;
+    throw error;
+  } finally {
+    runtime.running = false;
+    await lock.release();
+  }
 }
 
 export async function parseDouyinNote(notePath: string): Promise<DouyinLibraryItem | null> {
@@ -199,6 +269,7 @@ function commandProcess(args: string[], hideWindow: boolean) {
       ...process.env,
       DOUYIN_FAVORITES_CONFIG: configPath,
       DOUYIN_KNOWLEDGE_DIR: knowledgeDir,
+      VIDEO_ANALYSIS_CONFIG: aiConfigPath,
       PYTHONPATH: [path.join(integrationDir, 'src'), adapterDir, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter),
       PATH: [toolsDir, process.env.PATH].filter(Boolean).join(path.delimiter),
       OMP_NUM_THREADS: process.env.OMP_NUM_THREADS || String(Math.max(1, Math.floor(os.cpus().length / 2))),
@@ -206,10 +277,57 @@ function commandProcess(args: string[], hideWindow: boolean) {
   });
 }
 
+function refreshAnalysisLedger(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(pythonExecutable, [path.join(adapterDir, 'ledger_adapter.py'), configPath], {
+      cwd: projectRoot,
+      windowsHide: true,
+      env: {
+        ...process.env,
+        DOUYIN_FAVORITES_CONFIG: configPath,
+        DOUYIN_KNOWLEDGE_DIR: knowledgeDir,
+        PYTHONPATH: [path.join(integrationDir, 'src'), adapterDir, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter),
+      },
+    });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => { stderr += String(chunk); });
+    child.on('error', reject);
+    child.on('close', (code) => code === 0 ? resolve() : reject(new Error(cleanOutput(stderr) || '知识库账本更新失败。')));
+  });
+}
+
 function section(markdown: string, heading: string): string {
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = `${markdown}\n## __END__`.match(new RegExp(`^#{2,3} ${escaped}\\s*\\r?\\n+([\\s\\S]*?)(?=^#{2,3} )`, 'm'));
   return match?.[1]?.trim().replace(/\n{3,}/g, '\n\n') ?? '';
+}
+
+function upsertMarkdownSection(markdown: string, level: 2 | 3, heading: string, value: string | undefined): string {
+  const content = value?.trim();
+  if (!content) return markdown;
+  const marker = '#'.repeat(level);
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const expression = new RegExp(`(^${marker} ${escaped}\\s*\\r?\\n+)[\\s\\S]*?(?=^#{2,3} )`, 'm');
+  if (expression.test(`${markdown}\n## __END__`)) {
+    return markdown.replace(expression, `$1${content}\n\n`);
+  }
+  const sourceIndex = markdown.search(/^## Source\s*$/m);
+  const addition = `${marker} ${heading}\n\n${content}\n\n`;
+  return sourceIndex >= 0
+    ? `${markdown.slice(0, sourceIndex)}${addition}${markdown.slice(sourceIndex)}`
+    : `${markdown.trimEnd()}\n\n${addition}`;
+}
+
+function replaceFrontmatterTags(markdown: string, tags: string[] | undefined): string {
+  if (!Array.isArray(tags) || !tags.length) return markdown;
+  const cleaned = tags.map((tag) => String(tag).trim()).filter(Boolean).slice(0, 8);
+  return markdown.replace(/^tags:\s*\[[^\r\n]*\]\s*$/m, `tags: ${JSON.stringify(cleaned)}`);
+}
+
+async function atomicWriteNote(notePath: string, content: string): Promise<void> {
+  const temporary = `${notePath}.${process.pid}.tmp`;
+  await writeFile(temporary, content, 'utf8');
+  await rename(temporary, notePath);
 }
 
 function stringValue(value: unknown): string {
