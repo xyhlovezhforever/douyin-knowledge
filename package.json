@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "concurrently -k -n web,api,connector,crawler -c cyan,green,magenta,yellow \"vite --host 127.0.0.1\" \"tsx watch server/index.ts\" \"tsx watch connector/index.ts\" \"uv run --directory integrations/MediaCrawler uvicorn api.main:app --host 127.0.0.1 --port 8901\"",
     "setup:integrations": "powershell -ExecutionPolicy Bypass -File scripts/setup-integrations.ps1",
+    "douyin:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-douyin-monitor.ps1",
+    "douyin:login": "powershell -ExecutionPolicy Bypass -File scripts/run-douyin-monitor.ps1 -Action login",
+    "douyin:sync": "powershell -ExecutionPolicy Bypass -File scripts/run-douyin-monitor.ps1 -Action sync",
     "connector": "tsx connector/index.ts",
     "build": "tsc --noEmit && vite build",
     "start": "tsx server/index.ts",
-    "test": "tsx --test server/lib/comments.test.ts server/platform.test.ts server/adapters/wechatChannels.test.ts",
+    "test": "tsx --test server/lib/comments.test.ts server/platform.test.ts server/adapters/wechatChannels.test.ts server/douyinMonitor.test.ts",
     "qa": "node scripts/qa.mjs"
   },
   "dependencies": {
@@ -17,6 +20,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "gray-matter": "^4.0.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "youtubei.js": "^15.0.1",

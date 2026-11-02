@@ -13,6 +13,8 @@ if (-not (Test-Path $videoFetchPython)) {
 }
 uv pip install --python $videoFetchPython yt-dlp imageio-ffmpeg pyyaml
 
+& (Join-Path $PSScriptRoot 'setup-douyin-monitor.ps1')
+
 $mediaCrawlerConfig = Join-Path $mediaCrawler 'config\base_config.py'
 $config = Get-Content -Raw $mediaCrawlerConfig
 $config = $config.Replace('CDP_CONNECT_EXISTING = True', 'CDP_CONNECT_EXISTING = False')
@@ -23,4 +25,4 @@ if (-not (Test-Path $envFile)) {
     Copy-Item (Join-Path $projectRoot '.env.example') $envFile
 }
 
-Write-Host 'Integrations are ready. Run: npm run dev'
+Write-Host 'Integrations are ready. Run npm run douyin:login once, then npm run dev.'

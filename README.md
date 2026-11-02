@@ -1,18 +1,19 @@
 # 视评台
 
-视评台把视频元数据、转写、摘要与评论信号整理成统一报告。当前 MVP 已直接接入开源 `youtubei.js` 和微信视频号公开元数据接口，并为 MediaCrawler 与 video-fetch-yjf 提供标准 HTTP 连接器。
+视评台把视频元数据、转写、摘要与评论信号整理成统一报告。它可以定时同步本人抖音账号的收藏与点赞，也可以分析单个视频链接。当前版本接入 `douyin-favorites-to-knowledge`、`youtubei.js`、MediaCrawler 与 video-fetch-yjf。
 
 ## 本地启动
 
 ```powershell
 npm install
 npm run setup:integrations
+npm run douyin:login
 npm run dev
 ```
 
 打开 `http://127.0.0.1:5173`。API 默认运行在 `http://127.0.0.1:8787`。
 
-当前仓库的 `npm run dev` 会同时启动 Web、主 API、本地统一连接器和 MediaCrawler API。首次安装运行 `npm run setup:integrations`，脚本会初始化两个 Git submodule、安装隔离依赖、配置 MediaCrawler 自动启动 Chrome，并创建本地 `.env`。
+当前仓库的 `npm run dev` 会同时启动 Web、主 API、本地统一连接器和 MediaCrawler API。首次安装运行 `npm run setup:integrations`，脚本会初始化三个 Git submodule、安装隔离依赖、配置本地 Whisper 与项目专用 FFmpeg，并创建本地 `.env`。随后运行一次 `npm run douyin:login`，在 Edge 中扫码授权本人账号。
 
 从 GitHub 克隆时也可以直接初始化子模块：
 
@@ -27,6 +28,10 @@ npm run dev
 ## 当前能力
 
 - 自动识别 YouTube、B站、抖音、小红书、TikTok 与微信视频号链接
+- 每 15 分钟增量同步抖音收藏与点赞，间隔可在 `.env` 调整
+- 本地 Whisper 语音转写，基础摘要无需模型密钥
+- 兼容模型接口生成内容摘要、价值判断、行动建议与知识关联
+- 收藏和点赞独立去重、搜索和来源筛选
 - YouTube 元数据、公开字幕和热门评论提取
 - 无模型密钥的抽取式摘要与主题提取
 - 评论价值评分：问题、经验、纠错、资源与讨论
@@ -105,7 +110,33 @@ type VideoReport = {
 ```powershell
 npm test
 npm run build
+npm run qa
 ```
+
+## 抖音监测配置
+
+收藏监测默认把配置写入 `data/douyin-monitor/`，把 Markdown 知识库写入 `data/douyin-knowledge/`。两个目录和浏览器登录态只保存在本机，不进入 Git。
+
+```powershell
+# 重新初始化本地运行时
+npm run douyin:setup
+
+# 登录失效后重新扫码
+npm run douyin:login
+
+# 不启动网页，手动同步一次收藏与点赞
+npm run douyin:sync
+```
+
+没有配置模型时，分析器使用本地抽取式摘要。需要语义分析时，在 `.env` 配置兼容 Chat Completions 的接口：
+
+```dotenv
+VIDEO_ANALYSIS_API_URL=http://127.0.0.1:11434/v1/chat/completions
+VIDEO_ANALYSIS_MODEL=qwen3:8b
+VIDEO_ANALYSIS_API_KEY=
+```
+
+首次转写会下载约 500 MB 的 Whisper `small` 模型。登录状态失效时，后台不会绕过验证，只会暂停同步并提示重新扫码。
 
 ## 合规边界
 

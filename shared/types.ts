@@ -60,6 +60,41 @@ export type VideoReport = {
 
 export type AnalyzeResponse = { report: VideoReport };
 
+export type DouyinSource = 'collection' | 'like';
+
+export type DouyinLibraryItem = {
+  id: string;
+  source: DouyinSource;
+  sourceUrl: string;
+  title: string;
+  author: string;
+  observedAt: string;
+  tags: string[];
+  transcriptStatus: string;
+  summary: string;
+  valueJudgment?: string;
+  actionItems?: string;
+  notePath: string;
+};
+
+export type DouyinMonitorStatus = {
+  configured: boolean;
+  login: 'unknown' | 'ready' | 'action_required' | 'checking';
+  running: boolean;
+  autoSync: boolean;
+  intervalMinutes: number;
+  itemCount: number;
+  collectionCount: number;
+  likeCount: number;
+  lastRunAt?: string;
+  lastSuccessAt?: string;
+  lastResult?: string;
+  error?: string;
+};
+
+export type DouyinStatusResponse = { status: DouyinMonitorStatus };
+export type DouyinLibraryResponse = { items: DouyinLibraryItem[]; total: number };
+
 export type ApiError = {
   error: string;
   code: string;

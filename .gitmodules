@@ -6,3 +6,6 @@
 	path = integrations/video-fetch-yjf
 	url = https://github.com/yinjf2005/video-fetch-yjf.git
 	ignore = dirty
+[submodule "integrations/douyin-favorites-to-knowledge"]
+	path = integrations/douyin-favorites-to-knowledge
+	url = https://github.com/tars1230/douyin-favorites-to-knowledge.git

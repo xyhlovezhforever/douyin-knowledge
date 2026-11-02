@@ -1,14 +1,18 @@
 import {
+  Archive as ArchiveBox,
   ArrowLeft,
   ArrowSquareOut,
+  ArrowsClockwise,
   CheckCircle,
   Clock,
   GearSix,
+  Heart,
   Link as LinkIcon,
   ListBullets,
   MagnifyingGlass,
   Play,
   Quotes,
+  SignIn,
   SlidersHorizontal,
   Sparkle,
   TextAlignLeft,
@@ -17,10 +21,21 @@ import {
   X,
 } from '@phosphor-icons/react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import type { AnalyzeResponse, ApiError, ConnectorStatus, InsightComment, VideoReport } from '../shared/types';
+import type {
+  AnalyzeResponse,
+  ApiError,
+  ConnectorStatus,
+  DouyinLibraryItem,
+  DouyinLibraryResponse,
+  DouyinMonitorStatus,
+  DouyinStatusResponse,
+  InsightComment,
+  VideoReport,
+} from '../shared/types';
 
 type TabId = 'overview' | 'transcript' | 'comments' | 'sources';
 type RequestState = 'idle' | 'loading' | 'success' | 'error';
+type WorkspaceMode = 'monitor' | 'single';
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof Sparkle }> = [
   { id: 'overview', label: '概览', icon: Sparkle },
@@ -38,6 +53,7 @@ const SIGNAL_LABELS: Record<InsightComment['signal'], string> = {
 };
 
 export default function App() {
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('monitor');
   const [url, setUrl] = useState('');
   const [report, setReport] = useState<VideoReport | null>(null);
   const [requestState, setRequestState] = useState<RequestState>('idle');
@@ -125,6 +141,14 @@ export default function App() {
           <span className="brand-mark"><ListBullets weight="bold" size={20} /></span>
           <span>视评台</span>
         </a>
+        <nav className="workspace-switch" aria-label="工作台模式">
+          <button type="button" className={workspaceMode === 'monitor' ? 'active' : ''} onClick={() => setWorkspaceMode('monitor')} aria-current={workspaceMode === 'monitor' ? 'page' : undefined}>
+            <ArchiveBox size={18} />收藏监测
+          </button>
+          <button type="button" className={workspaceMode === 'single' ? 'active' : ''} onClick={() => setWorkspaceMode('single')} aria-current={workspaceMode === 'single' ? 'page' : undefined}>
+            <LinkIcon size={18} />单条分析
+          </button>
+        </nav>
         <div className="topbar-actions">
           <button className="connector-pill" type="button" onClick={() => setSettingsOpen(true)}>
             <span className="status-dot" aria-hidden="true" />
@@ -137,6 +161,7 @@ export default function App() {
       </header>
 
       <main id="main-content" className="workspace">
+        {workspaceMode === 'monitor' ? <DouyinMonitor /> : <>
         <section className="command-section" aria-labelledby="workspace-title">
           <div className="command-heading">
             <div>
@@ -187,6 +212,7 @@ export default function App() {
         ) : (
           <EmptyWorkspace connectors={connectors} />
         )}
+        </>}
       </main>
 
       <footer className="footer">
@@ -201,6 +227,175 @@ export default function App() {
       {legalView && <LegalDialog view={legalView} onClose={() => setLegalView(null)} />}
     </div>
   );
+}
+
+function DouyinMonitor() {
+  const [status, setStatus] = useState<DouyinMonitorStatus | null>(null);
+  const [items, setItems] = useState<DouyinLibraryItem[]>([]);
+  const [source, setSource] = useState<'all' | 'collection' | 'like'>('all');
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [action, setAction] = useState<'login' | 'sync' | null>(null);
+  const [error, setError] = useState('');
+
+  async function refresh() {
+    try {
+      const [statusResponse, libraryResponse] = await Promise.all([
+        fetch('/api/douyin/status'),
+        fetch('/api/douyin/library'),
+      ]);
+      const statusPayload = await statusResponse.json() as DouyinStatusResponse;
+      const libraryPayload = await libraryResponse.json() as DouyinLibraryResponse;
+      setStatus(statusPayload.status);
+      setItems(libraryPayload.items);
+      setError('');
+    } catch {
+      setError('无法读取收藏监测服务，请确认本地 API 已启动。');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), status?.running ? 4_000 : 20_000);
+    return () => window.clearInterval(timer);
+  }, [status?.running]);
+
+  async function syncNow() {
+    setAction('sync');
+    setError('');
+    try {
+      const response = await fetch('/api/douyin/sync', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ source: 'all' }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || '同步失败。');
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '同步失败。');
+    } finally {
+      setAction(null);
+    }
+  }
+
+  async function login() {
+    setAction('login');
+    setError('');
+    try {
+      const response = await fetch('/api/douyin/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ source: 'collection' }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || '无法启动登录。');
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '无法启动登录。');
+    } finally {
+      setAction(null);
+    }
+  }
+
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase('zh-CN');
+    return items.filter((item) => {
+      if (source !== 'all' && item.source !== source) return false;
+      if (!normalized) return true;
+      return [item.title, item.author, item.summary, ...item.tags].some((value) => value.toLocaleLowerCase('zh-CN').includes(normalized));
+    });
+  }, [items, query, source]);
+
+  return (
+    <section className="monitor-workspace" aria-labelledby="monitor-title">
+      <header className="monitor-heading">
+        <div>
+          <p className="eyebrow">抖音知识库</p>
+          <h1 id="monitor-title">点赞与收藏监测</h1>
+          <p className="monitor-state">{monitorState(status)}</p>
+        </div>
+        <div className="monitor-actions">
+          {status?.login !== 'ready' && (
+            <button className="secondary-button" type="button" onClick={login} disabled={!status?.configured || Boolean(action) || status?.running}>
+              <SignIn size={18} />{action === 'login' ? '等待扫码' : '登录抖音'}
+            </button>
+          )}
+          <button className="primary-button" type="button" onClick={syncNow} disabled={!status?.configured || Boolean(action) || status?.running}>
+            <ArrowsClockwise size={18} />{action === 'sync' || status?.running ? '同步中' : '立即同步'}
+          </button>
+        </div>
+      </header>
+
+      {error && <div className="inline-error" role="alert"><WarningCircle size={20} weight="fill" /><span>{error}</span></div>}
+
+      <div className="monitor-stats" aria-label="监测统计">
+        <div><strong>{status?.itemCount ?? 0}</strong><span>全部视频</span></div>
+        <div><strong>{status?.collectionCount ?? 0}</strong><span>收藏</span></div>
+        <div><strong>{status?.likeCount ?? 0}</strong><span>点赞</span></div>
+        <div><strong>{status?.intervalMinutes ?? 15}<small> 分钟</small></strong><span>检查间隔</span></div>
+      </div>
+
+      <div className="library-toolbar">
+        <div className="segmented-control" aria-label="内容来源">
+          {(['all', 'collection', 'like'] as const).map((item) => (
+            <button key={item} type="button" className={source === item ? 'active' : ''} onClick={() => setSource(item)}>
+              {item === 'all' ? '全部' : item === 'collection' ? '收藏' : '点赞'}
+            </button>
+          ))}
+        </div>
+        <div className="search-field"><MagnifyingGlass size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、作者或摘要" aria-label="搜索知识库" /></div>
+        <span>{filtered.length} 条</span>
+      </div>
+
+      {loading ? <LibraryLoading /> : filtered.length > 0 ? (
+        <div className="library-grid">
+          {filtered.map((item) => <LibraryItem key={`${item.source}-${item.id}`} item={item} />)}
+        </div>
+      ) : (
+        <div className="library-empty">
+          <ArchiveBox size={40} />
+          <h2>{status?.configured ? '知识库暂无内容' : '收藏监测尚未初始化'}</h2>
+          <p>{status?.configured ? '登录后执行一次同步，新增视频会出现在这里。' : '运行 npm run douyin:setup 完成本地初始化。'}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function LibraryItem({ item }: { item: DouyinLibraryItem }) {
+  return (
+    <article className="library-item">
+      <div className="library-item-top">
+        <span className={`source-badge source-${item.source}`}>{item.source === 'collection' ? <ArchiveBox size={14} /> : <Heart size={14} weight="fill" />}{item.source === 'collection' ? '收藏' : '点赞'}</span>
+        {item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer" aria-label="打开原视频" title="打开原视频"><ArrowSquareOut size={18} /></a>}
+      </div>
+      <h2>{item.title}</h2>
+      <p className="library-author">{item.author}{item.observedAt ? ` · ${formatDate(item.observedAt)}` : ''}</p>
+      <p className="library-summary">{item.summary}</p>
+      <div className="topic-list">{item.tags.slice(0, 6).map((tag) => <span key={tag}>{tag}</span>)}</div>
+      <div className="library-foot"><span>{transcriptLabel(item.transcriptStatus)}</span>{item.actionItems && <span>含行动建议</span>}</div>
+    </article>
+  );
+}
+
+function LibraryLoading() {
+  return <div className="library-grid" aria-label="正在读取知识库" aria-busy="true">{[0, 1, 2, 3].map((item) => <div className="library-skeleton" key={item}><span /><span /><span /><span /></div>)}</div>;
+}
+
+function monitorState(status: DouyinMonitorStatus | null): string {
+  if (!status) return '正在读取本地状态';
+  if (!status.configured) return '等待初始化';
+  if (status.running) return '正在检查新增内容';
+  if (status.login === 'action_required') return '登录已失效，需要重新扫码';
+  if (status.lastResult) return status.lastResult;
+  return status.autoSync ? `每 ${status.intervalMinutes} 分钟自动检查` : '自动检查已关闭';
+}
+
+function transcriptLabel(status: string): string {
+  return ({ success: '语音已转写', screen_text: '画面文字已识别', not_requested: '仅分析文案' } as Record<string, string>)[status] ?? '等待转写';
 }
 
 function ReportView({ report, activeTab, onTabChange }: { report: VideoReport; activeTab: TabId; onTabChange: (tab: TabId) => void }) {

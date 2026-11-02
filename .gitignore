@@ -5,5 +5,9 @@ dist/
 .dev.*.log
 .vite/
 coverage/
+data/
+.tools/
+__pycache__/
+*.pyc
 .DS_Store
 npm-debug.log*

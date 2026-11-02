@@ -23,6 +23,11 @@ async function assertNoHorizontalOverflow(page, label) {
 try {
   const desktop = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
   await desktop.goto(baseUrl, { waitUntil: 'networkidle' });
+  await desktop.getByRole('heading', { name: '点赞与收藏监测' }).waitFor();
+  await assertNoHorizontalOverflow(desktop, 'desktop monitor');
+  await desktop.screenshot({ path: fileURLToPath(new URL('monitor-desktop.png', outputDir)), fullPage: true });
+
+  await desktop.getByRole('button', { name: '单条分析' }).click();
   await desktop.getByRole('button', { name: '载入示例' }).click();
   await desktop.getByRole('heading', { name: /从视频研究到可执行结论/ }).waitFor();
   await desktop.waitForTimeout(800);
@@ -49,13 +54,12 @@ try {
 
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
   await mobile.goto(baseUrl, { waitUntil: 'networkidle' });
-  await mobile.getByRole('button', { name: '载入示例' }).click();
-  await mobile.getByRole('heading', { name: /从视频研究到可执行结论/ }).waitFor();
+  await mobile.getByRole('heading', { name: '点赞与收藏监测' }).waitFor();
   await mobile.waitForTimeout(800);
   await assertNoHorizontalOverflow(mobile, 'mobile');
-  await mobile.screenshot({ path: fileURLToPath(new URL('mobile.png', outputDir)), fullPage: true });
+  await mobile.screenshot({ path: fileURLToPath(new URL('monitor-mobile.png', outputDir)), fullPage: true });
 
-  console.log(JSON.stringify({ desktop: '.qa/desktop.png', mobile: '.qa/mobile.png', wechatError: '.qa/wechat-error.png', status: 'passed' }));
+  console.log(JSON.stringify({ monitorDesktop: '.qa/monitor-desktop.png', desktop: '.qa/desktop.png', monitorMobile: '.qa/monitor-mobile.png', wechatError: '.qa/wechat-error.png', status: 'passed' }));
 } finally {
   await browser.close();
 }
