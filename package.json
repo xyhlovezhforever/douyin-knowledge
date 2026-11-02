@@ -12,7 +12,7 @@
     "connector": "tsx connector/index.ts",
     "build": "tsc --noEmit && vite build",
     "start": "tsx server/index.ts",
-    "test": "tsx --test server/lib/comments.test.ts server/platform.test.ts server/adapters/wechatChannels.test.ts server/douyinMonitor.test.ts",
+    "test": "tsx --test server/lib/comments.test.ts server/lib/processLock.test.ts server/platform.test.ts server/adapters/wechatChannels.test.ts server/douyinMonitor.test.ts",
     "qa": "node scripts/qa.mjs"
   },
   "dependencies": {

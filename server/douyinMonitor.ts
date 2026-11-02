@@ -1,9 +1,11 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import matter from 'gray-matter';
 import type { DouyinLibraryItem, DouyinMonitorStatus, DouyinSource } from '../shared/types.js';
+import { acquireProcessLock, processLockIsActive } from './lib/processLock.js';
 
 const projectRoot = process.cwd();
 const integrationDir = path.resolve(projectRoot, 'integrations/douyin-favorites-to-knowledge');
@@ -12,6 +14,7 @@ const toolsDir = path.resolve(projectRoot, '.tools/ffmpeg');
 const pythonExecutable = path.join(integrationDir, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 const configPath = path.resolve(process.env.DOUYIN_FAVORITES_CONFIG || path.join(projectRoot, 'data/douyin-monitor/config.json'));
 const knowledgeDir = path.resolve(process.env.DOUYIN_KNOWLEDGE_DIR || path.join(projectRoot, 'data/douyin-knowledge'));
+const syncLockPath = path.resolve(projectRoot, 'data/douyin-monitor/sync.lock');
 const intervalMinutes = positiveNumber(process.env.DOUYIN_SYNC_INTERVAL_MINUTES, 15);
 const maxItems = positiveNumber(process.env.DOUYIN_MAX_ITEMS, 1000);
 const autoSync = process.env.DOUYIN_AUTO_SYNC !== 'false';
@@ -39,10 +42,11 @@ export function startDouyinMonitor(): void {
 
 export async function getDouyinStatus(): Promise<DouyinMonitorStatus> {
   const items = await listDouyinLibrary();
+  const externallyRunning = await processLockIsActive(syncLockPath);
   return {
     configured: existsSync(configPath),
     login: runtime.login,
-    running: runtime.running,
+    running: runtime.running || externallyRunning,
     autoSync,
     intervalMinutes,
     itemCount: items.length,
@@ -127,6 +131,12 @@ export function startDouyinLogin(source: DouyinSource = 'collection'): boolean {
 async function runSync(source: DouyinSource | 'all'): Promise<Record<string, unknown>> {
   if (!existsSync(configPath)) throw new Error('收藏监测尚未初始化，请先运行 npm run douyin:setup。');
   await mkdir(knowledgeDir, { recursive: true });
+  const lock = await acquireProcessLock(syncLockPath);
+  if (!lock) {
+    runtime.lastResult = '已有同步任务运行中';
+    runtime.error = undefined;
+    return { status: 'already_running' };
+  }
   runtime.running = true;
   runtime.lastRunAt = new Date().toISOString();
   runtime.error = undefined;
@@ -150,6 +160,7 @@ async function runSync(source: DouyinSource | 'all'): Promise<Record<string, unk
     throw error;
   } finally {
     runtime.running = false;
+    await lock.release();
   }
 }
 
@@ -186,6 +197,7 @@ function commandProcess(args: string[], hideWindow: boolean) {
       DOUYIN_KNOWLEDGE_DIR: knowledgeDir,
       PYTHONPATH: [path.join(integrationDir, 'src'), adapterDir, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter),
       PATH: [toolsDir, process.env.PATH].filter(Boolean).join(path.delimiter),
+      OMP_NUM_THREADS: process.env.OMP_NUM_THREADS || String(Math.max(1, Math.floor(os.cpus().length / 2))),
     },
   });
 }
@@ -214,6 +226,7 @@ function summarizeResults(results: Record<string, unknown>): string {
     const result = raw as Record<string, unknown>;
     const label = source === 'collection' ? '收藏' : '点赞';
     const count = Number(result.promoted_count ?? result.candidate_count ?? 0);
+    if (result.status === 'already_running') return `${label}已有同步任务运行中`;
     return result.status === 'no_changes' ? `${label}无新增` : `${label}新增 ${count} 条`;
   }).join('，');
 }

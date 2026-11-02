@@ -24,7 +24,8 @@ $coreWheel = Join-Path $integration 'vendor\wheels\douyin_knowledge_core-0.2.1-p
 uv pip install --python $python $coreWheel 'playwright>=1.50,<2'
 
 if ($Transcription -eq 'local') {
-    uv pip install --python $python 'faster-whisper>=1.1,<2' imageio-ffmpeg
+    # faster-whisper 1.2 currently passes metadata_errors to PyAV; PyAV 19 removed it.
+    uv pip install --python $python 'faster-whisper>=1.1,<2' 'av>=11,<19' imageio-ffmpeg
     New-Item -ItemType Directory -Force $ffmpegDir | Out-Null
     $ffmpegSource = & $python -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"
     Copy-Item -Force $ffmpegSource.Trim() (Join-Path $ffmpegDir 'ffmpeg.exe')
