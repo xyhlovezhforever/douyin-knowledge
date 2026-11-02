@@ -30,6 +30,14 @@ transcript_status: "success"
 ### 价值判断
 
 方法具体，可直接复用。
+
+### 深度分析
+
+重点是把收藏、转写和研判串成同一条流程。
+
+### 关联知识
+
+个人知识库、语音识别
 `, 'utf8');
 
   const parsed = await parseDouyinNote(note);
@@ -38,4 +46,6 @@ transcript_status: "success"
   assert.deepEqual(parsed?.tags, ['效率', '知识管理']);
   assert.match(parsed?.summary ?? '', /可检索笔记/);
   assert.match(parsed?.valueJudgment ?? '', /直接复用/);
+  assert.match(parsed?.deepAnalysis ?? '', /同一条流程/);
+  assert.match(parsed?.relatedKnowledge ?? '', /个人知识库/);
 });

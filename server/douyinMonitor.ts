@@ -82,7 +82,10 @@ export async function parseDouyinNote(notePath: string): Promise<DouyinLibraryIt
       transcriptStatus: stringValue(data.transcript_status),
       summary: section(parsed.content, '要点') || section(parsed.content, '原始描述') || '等待生成内容摘要。',
       valueJudgment: section(parsed.content, '价值判断') || undefined,
+      deepAnalysis: section(parsed.content, '深度分析') || undefined,
+      extensions: section(parsed.content, '延展补充') || undefined,
       actionItems: section(parsed.content, '行动启示') || undefined,
+      relatedKnowledge: section(parsed.content, '关联知识') || undefined,
       notePath,
     };
   } catch {

@@ -26,6 +26,13 @@ try {
   await desktop.getByRole('heading', { name: '点赞与收藏监测' }).waitFor();
   await assertNoHorizontalOverflow(desktop, 'desktop monitor');
   await desktop.screenshot({ path: fileURLToPath(new URL('monitor-desktop.png', outputDir)), fullPage: true });
+  if (await desktop.locator('.library-item').count()) {
+    await desktop.getByRole('button', { name: '查看分析' }).first().click();
+    await desktop.locator('.analysis-panel').waitFor();
+    assert.match(await desktop.locator('.analysis-status').innerText(), /图文作品|语音已转写|画面文字已识别/);
+    await desktop.screenshot({ path: fileURLToPath(new URL('analysis-panel.png', outputDir)), fullPage: true });
+    await desktop.getByRole('button', { name: '关闭分析' }).click();
+  }
 
   await desktop.getByRole('button', { name: '单条分析' }).click();
   await desktop.getByRole('button', { name: '载入示例' }).click();
@@ -59,7 +66,7 @@ try {
   await assertNoHorizontalOverflow(mobile, 'mobile');
   await mobile.screenshot({ path: fileURLToPath(new URL('monitor-mobile.png', outputDir)), fullPage: true });
 
-  console.log(JSON.stringify({ monitorDesktop: '.qa/monitor-desktop.png', desktop: '.qa/desktop.png', monitorMobile: '.qa/monitor-mobile.png', wechatError: '.qa/wechat-error.png', status: 'passed' }));
+  console.log(JSON.stringify({ monitorDesktop: '.qa/monitor-desktop.png', analysisPanel: '.qa/analysis-panel.png', desktop: '.qa/desktop.png', monitorMobile: '.qa/monitor-mobile.png', wechatError: '.qa/wechat-error.png', status: 'passed' }));
 } finally {
   await browser.close();
 }

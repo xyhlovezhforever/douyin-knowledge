@@ -237,6 +237,7 @@ function DouyinMonitor() {
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<'login' | 'sync' | null>(null);
   const [error, setError] = useState('');
+  const [selectedItem, setSelectedItem] = useState<DouyinLibraryItem | null>(null);
 
   async function refresh() {
     try {
@@ -352,7 +353,7 @@ function DouyinMonitor() {
 
       {loading ? <LibraryLoading /> : filtered.length > 0 ? (
         <div className="library-grid">
-          {filtered.map((item) => <LibraryItem key={`${item.source}-${item.id}`} item={item} />)}
+          {filtered.map((item) => <LibraryItem key={`${item.source}-${item.id}`} item={item} onOpen={() => setSelectedItem(item)} />)}
         </div>
       ) : (
         <div className="library-empty">
@@ -361,11 +362,12 @@ function DouyinMonitor() {
           <p>{status?.configured ? '登录后执行一次同步，新增视频会出现在这里。' : '运行 npm run douyin:setup 完成本地初始化。'}</p>
         </div>
       )}
+      {selectedItem && <AnalysisPanel item={selectedItem} onClose={() => setSelectedItem(null)} />}
     </section>
   );
 }
 
-function LibraryItem({ item }: { item: DouyinLibraryItem }) {
+function LibraryItem({ item, onOpen }: { item: DouyinLibraryItem; onOpen: () => void }) {
   return (
     <article className="library-item">
       <div className="library-item-top">
@@ -376,8 +378,42 @@ function LibraryItem({ item }: { item: DouyinLibraryItem }) {
       <p className="library-author">{item.author}{item.observedAt ? ` · ${formatDate(item.observedAt)}` : ''}</p>
       <p className="library-summary">{item.summary}</p>
       <div className="topic-list">{item.tags.slice(0, 6).map((tag) => <span key={tag}>{tag}</span>)}</div>
-      <div className="library-foot"><span>{transcriptLabel(item.transcriptStatus)}</span>{item.actionItems && <span>含行动建议</span>}</div>
+      <div className="library-foot">
+        <div><span>{transcriptLabel(item.transcriptStatus)}</span><span>分析已完成</span></div>
+        <button type="button" onClick={onOpen}><Sparkle size={16} weight="fill" />查看分析</button>
+      </div>
     </article>
+  );
+}
+
+function AnalysisPanel({ item, onClose }: { item: DouyinLibraryItem; onClose: () => void }) {
+  const sections = [
+    ['内容摘要', item.summary],
+    ['价值判断', item.valueJudgment],
+    ['深度分析', item.deepAnalysis],
+    ['延展补充', item.extensions],
+    ['行动建议', item.actionItems],
+    ['关联知识', item.relatedKnowledge],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
+
+  return (
+    <div className="drawer-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <aside className="analysis-panel" aria-labelledby="analysis-title">
+        <div className="drawer-header">
+          <div><p className="eyebrow">智能研判</p><h2 id="analysis-title">{item.title}</h2></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="关闭分析"><X size={20} /></button>
+        </div>
+        <div className="analysis-meta"><span>{item.author}</span><span>{item.source === 'collection' ? '收藏' : '点赞'}</span><span>{formatDate(item.observedAt)}</span></div>
+        <div className={`analysis-status ${item.transcriptStatus === 'skipped_image' ? 'image' : ''}`}>
+          <CheckCircle size={18} weight="fill" />
+          <p>{item.transcriptStatus === 'skipped_image' ? '图文作品，当前研判基于作品文案。画面文字尚未进入分析。' : transcriptLabel(item.transcriptStatus)}</p>
+        </div>
+        <div className="analysis-sections">
+          {sections.map(([title, content]) => <section key={title}><h3>{title}</h3><p>{content}</p></section>)}
+        </div>
+        {item.sourceUrl && <a className="analysis-source" href={item.sourceUrl} target="_blank" rel="noreferrer">打开原作品<ArrowSquareOut size={18} /></a>}
+      </aside>
+    </div>
   );
 }
 
@@ -395,7 +431,7 @@ function monitorState(status: DouyinMonitorStatus | null): string {
 }
 
 function transcriptLabel(status: string): string {
-  return ({ success: '语音已转写', screen_text: '画面文字已识别', not_requested: '仅分析文案' } as Record<string, string>)[status] ?? '等待转写';
+  return ({ success: '语音已转写', screen_text: '画面文字已识别', skipped_image: '图文，仅分析文案', not_requested: '仅分析文案' } as Record<string, string>)[status] ?? '转写未完成';
 }
 
 function ReportView({ report, activeTab, onTabChange }: { report: VideoReport; activeTab: TabId; onTabChange: (tab: TabId) => void }) {

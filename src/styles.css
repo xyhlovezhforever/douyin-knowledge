@@ -82,8 +82,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .library-author { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 16px; }
 .library-summary { display: -webkit-box; margin-top: 16px; overflow: hidden; color: #3d403b; font-size: 14px; line-height: 20px; -webkit-box-orient: vertical; -webkit-line-clamp: 5; }
 .library-item .topic-list { margin-top: auto; padding-top: 24px; }
-.library-foot { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 16px; }
+.library-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 16px; }
+.library-foot > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .library-foot span + span::before { content: '·'; margin-right: 8px; }
+.library-foot button { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 4px 8px; border: 0; border-radius: 4px; background: var(--green-soft); color: var(--green); font-size: 12px; line-height: 16px; font-weight: 700; transition: transform 300ms cubic-bezier(0.22,1,0.36,1), background 300ms cubic-bezier(0.22,1,0.36,1); }
+.library-foot button:hover { background: #cdebdc; transform: translateY(-2px); }
+.library-foot button:active { transform: scale(0.98); }
 .library-empty { display: grid; min-height: 400px; place-items: center; align-content: center; gap: 12px; border: 1px dashed #c7cbc3; border-radius: 8px; background: rgb(255 255 255 / 0.45); color: var(--muted); text-align: center; }
 .library-empty svg { color: var(--green); }
 .library-empty h2 { color: var(--ink); font-size: 20px; line-height: 28px; }
@@ -239,6 +243,23 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .drawer-backdrop, .dialog-backdrop { position: fixed; z-index: 60; inset: 0; display: flex; justify-content: flex-end; background: rgb(24 24 24 / 0.36); backdrop-filter: blur(4px); animation: fade-in 300ms cubic-bezier(0.22,1,0.36,1) both; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .settings-panel { width: min(440px, 100%); height: 100%; padding: 24px; background: var(--surface); box-shadow: -24px 0 64px rgb(24 24 24 / 0.16); animation: drawer-in 500ms cubic-bezier(0.22,1,0.36,1) both; }
+.analysis-panel { width: min(640px, 100%); height: 100%; padding: 24px; overflow-y: auto; background: var(--surface); box-shadow: -24px 0 64px rgb(24 24 24 / 0.16); animation: drawer-in 500ms cubic-bezier(0.22,1,0.36,1) both; }
+.analysis-panel .drawer-header { align-items: flex-start; }
+.analysis-panel .drawer-header > div { min-width: 0; }
+.analysis-panel .drawer-header h2 { font-size: 24px; line-height: 32px; overflow-wrap: anywhere; }
+.analysis-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; color: var(--muted); font-size: 12px; line-height: 16px; }
+.analysis-meta span + span::before { content: '·'; margin-right: 8px; }
+.analysis-status { display: flex; align-items: flex-start; gap: 8px; margin-top: 24px; padding: 12px 16px; border: 1px solid #b9dfcf; border-radius: 8px; background: var(--green-soft); color: #105c41; }
+.analysis-status.image { border-color: #dfd29f; background: var(--yellow-soft); color: #6a4d0e; }
+.analysis-status svg { flex: 0 0 auto; margin-top: 2px; }
+.analysis-status p { font-size: 14px; line-height: 20px; }
+.analysis-sections { display: grid; gap: 32px; margin-top: 32px; }
+.analysis-sections section { display: grid; gap: 8px; }
+.analysis-sections h3 { font-size: 18px; line-height: 28px; }
+.analysis-sections p { color: #3d403b; font-size: 14px; line-height: 20px; white-space: pre-wrap; }
+.analysis-source { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; margin-top: 32px; padding: 8px 12px; border-radius: 8px; background: var(--ink); color: #fff; text-decoration: none; font-size: 14px; line-height: 20px; font-weight: 600; transition: transform 300ms cubic-bezier(0.22,1,0.36,1), background 300ms cubic-bezier(0.22,1,0.36,1); }
+.analysis-source:hover { background: #313131; transform: translateY(-2px); }
+.analysis-source:active { transform: scale(0.98); }
 @keyframes drawer-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .drawer-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .drawer-header h2 { font-size: 24px; line-height: 32px; }

@@ -73,7 +73,10 @@ export type DouyinLibraryItem = {
   transcriptStatus: string;
   summary: string;
   valueJudgment?: string;
+  deepAnalysis?: string;
+  extensions?: string;
   actionItems?: string;
+  relatedKnowledge?: string;
   notePath: string;
 };
 
