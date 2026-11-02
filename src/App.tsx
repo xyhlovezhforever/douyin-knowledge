@@ -33,7 +33,6 @@ import type {
 import AiSettingsPage from './AiSettings';
 
 type TabId = 'overview' | 'transcript' | 'comments' | 'sources';
-type WorkspaceMode = 'monitor' | 'ai';
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof Sparkle }> = [
   { id: 'overview', label: '概览', icon: Sparkle },
@@ -51,7 +50,6 @@ const SIGNAL_LABELS: Record<InsightComment['signal'], string> = {
 };
 
 export default function App() {
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('monitor');
   const [connectors, setConnectors] = useState<ConnectorStatus[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [legalView, setLegalView] = useState<'privacy' | 'terms' | null>(null);
@@ -76,14 +74,6 @@ export default function App() {
           <span className="brand-mark"><ListBullets weight="bold" size={20} /></span>
           <span>视评台</span>
         </a>
-        <nav className="workspace-switch" aria-label="工作台模式">
-          <button type="button" className={workspaceMode === 'monitor' ? 'active' : ''} onClick={() => setWorkspaceMode('monitor')} aria-current={workspaceMode === 'monitor' ? 'page' : undefined}>
-            <ArchiveBox size={18} />收藏监测
-          </button>
-          <button type="button" className={workspaceMode === 'ai' ? 'active' : ''} onClick={() => setWorkspaceMode('ai')} aria-current={workspaceMode === 'ai' ? 'page' : undefined}>
-            <Sparkle size={18} />AI 配置
-          </button>
-        </nav>
         <div className="topbar-actions">
           <button className="connector-pill" type="button" onClick={() => setSettingsOpen(true)}>
             <span className="status-dot" aria-hidden="true" />
@@ -96,7 +86,7 @@ export default function App() {
       </header>
 
       <main id="main-content" className="workspace">
-        {workspaceMode === 'monitor' ? <DouyinMonitor /> : <AiSettingsPage />}
+        <DouyinMonitor />
       </main>
 
       <footer className="footer">
@@ -122,6 +112,7 @@ function DouyinMonitor() {
   const [action, setAction] = useState<'login' | 'sync' | null>(null);
   const [error, setError] = useState('');
   const [selectedItem, setSelectedItem] = useState<DouyinLibraryItem | null>(null);
+  const [aiConfigOpen, setAiConfigOpen] = useState(false);
 
   async function refresh() {
     try {
@@ -208,6 +199,9 @@ function DouyinMonitor() {
               <SignIn size={18} />{action === 'login' ? '等待扫码' : '登录抖音'}
             </button>
           )}
+          <button className="secondary-button" type="button" onClick={() => setAiConfigOpen((open) => !open)} aria-expanded={aiConfigOpen}>
+            <Sparkle size={18} weight="fill" />AI 配置
+          </button>
           <button className="primary-button" type="button" onClick={syncNow} disabled={!status?.configured || Boolean(action) || status?.running}>
             <ArrowsClockwise size={18} />{action === 'sync' || status?.running ? '同步中' : '立即同步'}
           </button>
@@ -222,6 +216,8 @@ function DouyinMonitor() {
         <div><strong>{status?.likeCount ?? 0}</strong><span>点赞</span></div>
         <div><strong>{status?.intervalMinutes ?? 15}<small> 分钟</small></strong><span>检查间隔</span></div>
       </div>
+
+      {aiConfigOpen && <AiSettingsPage embedded onClose={() => setAiConfigOpen(false)} />}
 
       <div className="library-toolbar">
         <div className="segmented-control" aria-label="内容来源">
@@ -263,8 +259,8 @@ function LibraryItem({ item, onOpen }: { item: DouyinLibraryItem; onOpen: () => 
       <p className="library-summary">{item.summary}</p>
       <div className="topic-list">{item.tags.slice(0, 6).map((tag) => <span key={tag}>{tag}</span>)}</div>
       <div className="library-foot">
-        <div><span>{transcriptLabel(item.transcriptStatus)}</span><span>分析已完成</span></div>
-        <button type="button" onClick={onOpen}><Sparkle size={16} weight="fill" />查看分析</button>
+        <div><span>{transcriptLabel(item.transcriptStatus)}</span><span>AI 分析已完成</span></div>
+        <button type="button" onClick={onOpen}><Sparkle size={16} weight="fill" />查看 AI 分析</button>
       </div>
     </article>
   );

@@ -7,6 +7,7 @@ import {
   PlugsConnected,
   Sparkle,
   WarningCircle,
+  X,
 } from '@phosphor-icons/react';
 import { FormEvent, useEffect, useState } from 'react';
 import type { AiConfigPublic, AiConfigResponse, AiProviderId, AiQuality, ApiError } from '../shared/types';
@@ -34,7 +35,7 @@ const qualityLabels: Record<AiQuality, string> = {
   quality: '高质量',
 };
 
-export default function AiSettingsPage() {
+export default function AiSettingsPage({ embedded = false, onClose }: { embedded?: boolean; onClose?: () => void }) {
   const [config, setConfig] = useState<AiConfigPublic | null>(null);
   const [draft, setDraft] = useState<DraftConfig | null>(null);
   const [showKey, setShowKey] = useState(false);
@@ -54,7 +55,7 @@ export default function AiSettingsPage() {
   }, []);
 
   if (!config || !draft) {
-    return <section className="ai-config-page"><div className="ai-config-loading" aria-busy="true"><span /><span /><span /></div>{error && <InlineMessage error text={error} />}</section>;
+    return <section className={`ai-config-page${embedded ? ' embedded' : ''}`}><div className="ai-config-loading" aria-busy="true"><span /><span /><span /></div>{error && <InlineMessage error text={error} />}</section>;
   }
 
   const selected = draft.providers[draft.selectedProvider];
@@ -141,14 +142,17 @@ export default function AiSettingsPage() {
   }
 
   return (
-    <section className="ai-config-page" aria-labelledby="ai-config-title">
+    <section className={`ai-config-page${embedded ? ' embedded' : ''}`} aria-labelledby="ai-config-title">
       <header className="ai-config-heading">
         <div>
           <p className="eyebrow">智能研判</p>
-          <h1 id="ai-config-title">AI 分析配置</h1>
+          {embedded ? <h2 id="ai-config-title">AI 分析配置</h2> : <h1 id="ai-config-title">AI 分析配置</h1>}
           <p>为新增视频生成摘要、价值判断、深度分析和行动建议。</p>
         </div>
-        <span className={`ai-config-state ${savedProvider.configured ? 'ready' : ''}`}><CheckCircle size={18} weight="fill" />{savedProvider.configured ? '已配置' : '等待密钥'}</span>
+        <div className="ai-config-heading-actions">
+          <span className={`ai-config-state ${savedProvider.configured ? 'ready' : ''}`}><CheckCircle size={18} weight="fill" />{savedProvider.configured ? '已配置' : '等待密钥'}</span>
+          {onClose && <button className="icon-button" type="button" onClick={onClose} aria-label="收起 AI 配置" title="收起 AI 配置"><X size={20} /></button>}
+        </div>
       </header>
 
       <div className="ai-config-layout">

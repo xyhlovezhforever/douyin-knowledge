@@ -27,7 +27,7 @@ try {
   await assertNoHorizontalOverflow(desktop, 'desktop monitor');
   await desktop.screenshot({ path: fileURLToPath(new URL('monitor-desktop.png', outputDir)), fullPage: true });
   if (await desktop.locator('.library-item').count()) {
-    await desktop.getByRole('button', { name: '查看分析' }).first().click();
+    await desktop.getByRole('button', { name: '查看 AI 分析' }).first().click();
     await desktop.locator('.analysis-panel').waitFor();
     assert.match(await desktop.locator('.analysis-status').innerText(), /图文作品|语音已转写|画面文字已识别/);
     await desktop.screenshot({ path: fileURLToPath(new URL('analysis-panel.png', outputDir)), fullPage: true });
