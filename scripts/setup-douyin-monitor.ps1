@@ -34,6 +34,7 @@ if ($Transcription -eq 'local') {
 $env:PATH = "$ffmpegDir;$env:PATH"
 $env:PYTHONPATH = "$(Join-Path $integration 'src');$adapter;$env:PYTHONPATH"
 $env:DOUYIN_FAVORITES_CONFIG = $configPath
+$env:DOUYIN_KNOWLEDGE_DIR = $knowledgeDir
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
 New-Item -ItemType Directory -Force (Split-Path -Parent $configPath) | Out-Null
@@ -46,6 +47,11 @@ if (-not (Test-Path $configPath)) {
 
 $config = Get-Content -Raw $configPath | ConvertFrom-Json
 $config.mode = 'full'
+if ($Transcription -eq 'local') {
+    $config.transcription.enabled = $true
+    $config.transcription.provider = 'adapter'
+    $config.transcription | Add-Member -NotePropertyName adapter -NotePropertyValue 'transcription_adapter:transcribe_cached' -Force
+}
 $config.analysis = [ordered]@{
     enabled = $true
     provider = 'adapter'

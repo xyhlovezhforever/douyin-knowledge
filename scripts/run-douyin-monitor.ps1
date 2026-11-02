@@ -11,6 +11,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $integration = Join-Path $projectRoot 'integrations\douyin-favorites-to-knowledge'
 $adapter = Join-Path $projectRoot 'integrations\douyin-analysis-adapter'
 $configPath = Join-Path $projectRoot 'data\douyin-monitor\config.json'
+$knowledgeDir = Join-Path $projectRoot 'data\douyin-knowledge'
 $ffmpegDir = Join-Path $projectRoot '.tools\ffmpeg'
 $python = Join-Path $integration '.venv\Scripts\python.exe'
 $syncLockPath = Join-Path $projectRoot 'data\douyin-monitor\sync.lock'
@@ -18,6 +19,7 @@ $syncLockPath = Join-Path $projectRoot 'data\douyin-monitor\sync.lock'
 $env:PATH = "$ffmpegDir;$env:PATH"
 $env:PYTHONPATH = "$(Join-Path $integration 'src');$adapter;$env:PYTHONPATH"
 $env:DOUYIN_FAVORITES_CONFIG = $configPath
+$env:DOUYIN_KNOWLEDGE_DIR = $knowledgeDir
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
 if (-not $env:OMP_NUM_THREADS) {

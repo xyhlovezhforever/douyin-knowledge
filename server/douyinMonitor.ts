@@ -43,10 +43,14 @@ export function startDouyinMonitor(): void {
 export async function getDouyinStatus(): Promise<DouyinMonitorStatus> {
   const items = await listDouyinLibrary();
   const externallyRunning = await processLockIsActive(syncLockPath);
+  const running = runtime.running || externallyRunning;
+  const lastResult = !running && runtime.lastResult === '已有同步任务运行中'
+    ? `已入库 ${items.length} 条`
+    : runtime.lastResult;
   return {
     configured: existsSync(configPath),
     login: runtime.login,
-    running: runtime.running || externallyRunning,
+    running,
     autoSync,
     intervalMinutes,
     itemCount: items.length,
@@ -54,7 +58,7 @@ export async function getDouyinStatus(): Promise<DouyinMonitorStatus> {
     likeCount: items.filter((item) => item.source === 'like').length,
     lastRunAt: runtime.lastRunAt,
     lastSuccessAt: runtime.lastSuccessAt,
-    lastResult: runtime.lastResult,
+    lastResult,
     error: runtime.error,
   };
 }
